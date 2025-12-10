@@ -11,7 +11,12 @@ from datetime import datetime, timedelta
 import time
 import locale
 
-locale.setlocale(locale.LC_TIME, "Spanish_Spain")
+try:
+    # Locale típico de español en Linux
+    locale.setlocale(locale.LC_TIME, "es_ES.UTF-8")
+except locale.Error:
+    # Si no existe, usa el locale por defecto
+    locale.setlocale(locale.LC_TIME, "")
 # ESTO CREA EL TITULO y sidebar
 st.markdown(
     """
@@ -823,6 +828,7 @@ if PARAMETROS is not None:
             st.markdown(
                 f"**Días/jornadas con sobreocupación del pool de auxiliares (3 sedes):** {int(n_sobrecupo)}"
             )
+
 
 
 
