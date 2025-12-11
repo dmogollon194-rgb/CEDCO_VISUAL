@@ -671,6 +671,12 @@ if PARAMETROS is not None:
 
             # 1. Cargar asignación P
             Ptcsdji_aux = pd.read_csv("Ptcsdji.csv")
+            # Se asume que Ptcsdji.csv tiene al menos columnas:
+            # t, c, s, d, j, i, valor (si no hay 'valor', elimina el filtro de abajo)
+
+            # (Opcional, pero recomendable) quedarnos solo con asignaciones activas
+            if "valor" in Ptcsdji_aux.columns:
+                Ptcsdji_aux = Ptcsdji_aux[Ptcsdji_aux["valor"] != 0]
 
             # 1.1 Excluir T18, T19 y T20 cuando son cirugías (i de 39 a 47)
             trabajadores_excluir = [18, 19, 20]
@@ -704,6 +710,37 @@ if PARAMETROS is not None:
             # Jornada AM/PM a partir de j
             jornada_map = {1: "AM", 2: "PM"}
             Ptcsdji_aux["Jornada"] = Ptcsdji_aux["j"].map(jornada_map)
+
+            # =====================================================
+            # REGLAS PARA NO CONTAR DOBLE AUXILIARES
+            # =====================================================
+
+            # 1) Consultorio 12 de la sede 1:
+            #    Los servicios presentes el mismo día y jornada solo cargan auxiliares una vez.
+            #    -> Nos quedamos con una fila por (s=1, c=12, Fecha, Jornada, i)
+            if "c" in Ptcsdji_aux.columns:
+                mask_c12_s1 = (Ptcsdji_aux["s"] == 1) & (Ptcsdji_aux["c"] == 12)
+                df_c12 = (
+                    Ptcsdji_aux.loc[mask_c12_s1]
+                    .drop_duplicates(subset=["s", "c", "Fecha", "Jornada", "i"])
+                )
+                df_rest = Ptcsdji_aux.loc[~mask_c12_s1]
+                Ptcsdji_aux = pd.concat([df_rest, df_c12], ignore_index=True)
+
+            # 2) Servicios 14 y 15:
+            #    Si están dos veces el mismo día, misma jornada, mismo trabajador,
+            #    solo se cargan una vez.
+            mask_1415 = Ptcsdji_aux["i"].isin([14, 15])
+            df_1415 = (
+                Ptcsdji_aux.loc[mask_1415]
+                .drop_duplicates(subset=["t", "s", "Fecha", "Jornada"])
+            )
+            df_rest2 = Ptcsdji_aux.loc[~mask_1415]
+            Ptcsdji_aux = pd.concat([df_rest2, df_1415], ignore_index=True)
+
+            # =====================================================
+            # FILTRO POR JORNADA EN LA INTERFAZ
+            # =====================================================
 
             # 2. Selector de jornada
             jornadas_opts = ["Todas"] + sorted(
@@ -758,7 +795,6 @@ if PARAMETROS is not None:
 
             # Capacidad total del pool de auxiliares (34 para las 3 sedes)
             capacidad_total = capacidad  # número ingresado en el number_input
-
             aux_diario["Capacidad_pool"] = capacidad_total
 
             # 6.2. Porcentaje de ocupación del POOL (3 sedes) respecto a capacidad_total
