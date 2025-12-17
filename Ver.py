@@ -529,11 +529,11 @@ if PARAMETROS is not None:
                       (df_mostrar["demanda_faltante"] == 0))
                 ].copy()
 
-                # -----------------------------
-                # TABLA + TORTA (DISEÑO ACTUAL)
-                # -----------------------------
+                # =====================================================
+                # TABLA + TORTA (DISEÑO ACTUAL)  ->  COLORES POR %
+                # =====================================================
                 st.subheader("Cumplimiento de demanda (cantidades)")
-
+                
                 df_view = df_mostrar[[
                     "Sede", "Código", "Servicio",
                     "demanda_total", "demanda_atendida", "demanda_faltante"
@@ -541,47 +541,84 @@ if PARAMETROS is not None:
                     "demanda_total": "Demanda total",
                     "demanda_atendida": "Atendido",
                     "demanda_faltante": "Faltante",
-                })
-
-                # Colores tipo “semáforo” por Faltante
-                def color_faltante(v):
-                    if v <= 0:
-                        return "background-color:#2e7d32;color:white"   # verde
-                    elif v <= 5:
-                        return "background-color:#81c784"             # verde claro
-                    elif v <= 20:
-                        return "background-color:#fff176"             # amarillo
+                }).copy()
+                
+                # % (para colorear) pero mostrando cantidades
+                df_view["% atendido"] = np.where(
+                    df_view["Demanda total"] > 0,
+                    100 * df_view["Atendido"] / df_view["Demanda total"],
+                    0.0
+                )
+                df_view["% faltante"] = np.where(
+                    df_view["Demanda total"] > 0,
+                    100 * df_view["Faltante"] / df_view["Demanda total"],
+                    0.0
+                )
+                
+                # --- Colores por % atendido (verde alto, rojo bajo) ---
+                def color_porcentaje_atendido(p):
+                    # p está en 0..100
+                    if p >= 95:
+                        return "background-color:#2e7d32;color:white"   # verde fuerte
+                    elif p >= 85:
+                        return "background-color:#81c784"               # verde claro
+                    elif p >= 70:
+                        return "background-color:#fff176"               # amarillo
                     else:
-                        return "background-color:#ef5350;color:white" # rojo
-
+                        return "background-color:#ef5350;color:white"   # rojo
+                
+                # --- Colores por % faltante (verde si casi 0, rojo si alto) ---
+                def color_porcentaje_faltante(p):
+                    # p está en 0..100 (faltante/total)
+                    if p <= 1:
+                        return "background-color:#2e7d32;color:white"   # verde fuerte (casi nada)
+                    elif p <= 5:
+                        return "background-color:#81c784"               # verde claro
+                    elif p <= 15:
+                        return "background-color:#fff176"               # amarillo
+                    else:
+                        return "background-color:#ef5350;color:white"   # rojo
+                
+                # IMPORTANTE: aplicamos color usando los %,
+                # pero la tabla muestra "Atendido" y "Faltante" (cantidades).
                 styled = (
                     df_view.style
-                    .applymap(color_faltante, subset=["Faltante"])
+                    # Color en Atendido con % atendido
+                    .apply(lambda col: [color_porcentaje_atendido(v) for v in df_view["% atendido"]],
+                           subset=["Atendido"])
+                    # Color en Faltante con % faltante
+                    .apply(lambda col: [color_porcentaje_faltante(v) for v in df_view["% faltante"]],
+                           subset=["Faltante"])
                     .format("{:,.0f}", subset=["Demanda total", "Atendido", "Faltante"])
                 )
-
+                
                 # Totales para torta
                 total_dem = df_mostrar["demanda_total"].sum()
                 total_falt = df_mostrar["demanda_faltante"].sum()
                 total_atend = total_dem - total_falt
-
+                
                 col_tabla, col_pie = st.columns([3, 1])
-
+                
                 with col_tabla:
-                    st.dataframe(styled, use_container_width=True, height=450)
-
+                    # Ocultamos las columnas % (solo eran para colorear)
+                    st.dataframe(
+                        styled.hide_columns(["% atendido", "% faltante"]),
+                        use_container_width=True,
+                        height=450
+                    )
+                
                 with col_pie:
                     st.markdown("### Distribución")
-
+                
                     def autopct_format(values):
                         def _inner(pct):
                             total = sum(values)
                             val = int(round(pct * total / 100.0))
                             return f"{pct:.1f}%\n({val:,})"
                         return _inner
-
+                
                     valores = [total_atend, total_falt]
-
+                
                     fig, ax = plt.subplots()
                     ax.pie(
                         valores,
@@ -591,15 +628,13 @@ if PARAMETROS is not None:
                     )
                     ax.axis("equal")
                     st.pyplot(fig)
-
+                
                 # Métricas globales (cantidad)
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Demanda total", f"{int(total_dem):,}")
                 c2.metric("Atendido", f"{int(total_atend):,}")
                 c3.metric("Faltante", f"{int(total_falt):,}")
-
-            else:
-                st.warning("No se encontró el archivo D_si_ajust.csv")
+                
 
             # =====================================================
             # AUXILIARES (TU BLOQUE ORIGINAL, SIN CAMBIOS)
@@ -738,3 +773,4 @@ if PARAMETROS is not None:
             )
 
             st.markdown(f"**Días/jornadas con sobreocupación del pool de auxiliares (3 sedes):** {int(n_sobrecupo)}")
+
