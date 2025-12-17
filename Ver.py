@@ -530,11 +530,11 @@ if PARAMETROS is not None:
                 ].copy()
 
                 # =====================================================
-                # TABLA + TORTA (DISEÑO ACTUAL)  ->  COLORES POR %
+                # TABLA + TORTA (DISEÑO ACTUAL)  ->  COLORES POR % ATENDIDO
                 # =====================================================
                 st.subheader("Cumplimiento de demanda (cantidades)")
                 
-                df_view = df_mostrar[[
+                df_display = df_mostrar[[
                     "Sede", "Código", "Servicio",
                     "demanda_total", "demanda_atendida", "demanda_faltante"
                 ]].rename(columns={
@@ -543,30 +543,14 @@ if PARAMETROS is not None:
                     "demanda_faltante": "Faltante",
                 }).copy()
                 
-                # % (para colorear) pero mostrando cantidades
-                df_view["% atendido"] = np.where(
-                    df_view["Demanda total"] > 0,
-                    100 * df_view["Atendido"] / df_view["Demanda total"],
-                    0.0
-                )
-                df_view["% faltante"] = np.where(
-                    df_view["Demanda total"] > 0,
-                    100 * df_view["Faltante"] / df_view["Demanda total"],
+                # % atendido (SOLO para colorear, NO se muestra)
+                pct_atendido = np.where(
+                    df_display["Demanda total"] > 0,
+                    100 * df_display["Atendido"] / df_display["Demanda total"],
                     0.0
                 )
                 
-                # --- Colores por % atendido (verde alto, rojo bajo) ---
-                def color_porcentaje_atendido(p):
-                    # p está en 0..100
-                    if p >= 95:
-                        return "background-color:#2e7d32;color:white"   # verde fuerte
-                    elif p >= 85:
-                        return "background-color:#81c784"               # verde claro
-                    elif p >= 70:
-                        return "background-color:#fff176"               # amarillo
-                    else:
-                        return "background-color:#ef5350;color:white"   # rojo
-                
+                # --- Colores por % atendido (ajusta umbrales aquí) ---
                 def color_porcentaje_atendido(p):
                     if p >= 90:
                         return "background-color:#2e7d32;color:white"   # verde fuerte
@@ -576,23 +560,15 @@ if PARAMETROS is not None:
                         return "background-color:#fff176"               # amarillo
                     else:
                         return "background-color:#ef5350;color:white"   # rojo
-
                 
-                # IMPORTANTE: aplicamos color usando los %,
-                # pero la tabla muestra "Atendido" y "Faltante" (cantidades).
-                #
-                
-                styled = ( 
-                    df_view.style
-                    # Color en Atendido con % atendido
-                    .apply(lambda _: [color_porcentaje_atendido(v) for v in df_view["% atendido"]],
-                           subset=["Atendido"])
-                    # Color en Faltante también con % atendido (para que represente desempeño)
-                    .apply(lambda _: [color_porcentaje_atendido(v) for v in df_view["% atendido"]],
-                           subset=["Faltante"])
+                # Estilo: coloreamos Atendido y Faltante usando pct_atendido
+                styled = (
+                    df_display.style
+                    .apply(lambda _: [color_porcentaje_atendido(v) for v in pct_atendido], subset=["Atendido"])
+                    .apply(lambda _: [color_porcentaje_atendido(v) for v in pct_atendido], subset=["Faltante"])
                     .format("{:,.0f}", subset=["Demanda total", "Atendido", "Faltante"])
                 )
-
+                
                 # Totales para torta
                 total_dem = df_mostrar["demanda_total"].sum()
                 total_falt = df_mostrar["demanda_faltante"].sum()
@@ -601,12 +577,7 @@ if PARAMETROS is not None:
                 col_tabla, col_pie = st.columns([3, 1])
                 
                 with col_tabla:
-                    # Ocultamos las columnas % (solo eran para colorear)
-                    st.dataframe(
-                        styled.hide_columns(["% atendido", "% faltante"]),
-                        use_container_width=True,
-                        height=450
-                    )
+                    st.dataframe(styled, use_container_width=True, height=450)
                 
                 with col_pie:
                     st.markdown("### Distribución")
@@ -635,7 +606,6 @@ if PARAMETROS is not None:
                 c1.metric("Demanda total", f"{int(total_dem):,}")
                 c2.metric("Atendido", f"{int(total_atend):,}")
                 c3.metric("Faltante", f"{int(total_falt):,}")
-                
 
             # =====================================================
             # AUXILIARES (TU BLOQUE ORIGINAL, SIN CAMBIOS)
@@ -774,5 +744,6 @@ if PARAMETROS is not None:
             )
 
             st.markdown(f"**Días/jornadas con sobreocupación del pool de auxiliares (3 sedes):** {int(n_sobrecupo)}")
+
 
 
