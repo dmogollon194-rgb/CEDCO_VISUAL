@@ -567,31 +567,32 @@ if PARAMETROS is not None:
                     else:
                         return "background-color:#ef5350;color:white"   # rojo
                 
-                # --- Colores por % faltante (verde si casi 0, rojo si alto) ---
-                def color_porcentaje_faltante(p):
-                    # p está en 0..100 (faltante/total)
-                    if p <= 1:
-                        return "background-color:#2e7d32;color:white"   # verde fuerte (casi nada)
-                    elif p <= 5:
+                def color_porcentaje_atendido(p):
+                    if p >= 90:
+                        return "background-color:#2e7d32;color:white"   # verde fuerte
+                    elif p >= 70:
                         return "background-color:#81c784"               # verde claro
-                    elif p <= 15:
+                    elif p >= 40:
                         return "background-color:#fff176"               # amarillo
                     else:
                         return "background-color:#ef5350;color:white"   # rojo
+
                 
                 # IMPORTANTE: aplicamos color usando los %,
                 # pero la tabla muestra "Atendido" y "Faltante" (cantidades).
-                styled = (
+                #
+                
+                styled = ( 
                     df_view.style
                     # Color en Atendido con % atendido
-                    .apply(lambda col: [color_porcentaje_atendido(v) for v in df_view["% atendido"]],
+                    .apply(lambda _: [color_porcentaje_atendido(v) for v in df_view["% atendido"]],
                            subset=["Atendido"])
-                    # Color en Faltante con % faltante
-                    .apply(lambda col: [color_porcentaje_faltante(v) for v in df_view["% faltante"]],
+                    # Color en Faltante también con % atendido (para que represente desempeño)
+                    .apply(lambda _: [color_porcentaje_atendido(v) for v in df_view["% atendido"]],
                            subset=["Faltante"])
                     .format("{:,.0f}", subset=["Demanda total", "Atendido", "Faltante"])
                 )
-                
+
                 # Totales para torta
                 total_dem = df_mostrar["demanda_total"].sum()
                 total_falt = df_mostrar["demanda_faltante"].sum()
@@ -773,4 +774,5 @@ if PARAMETROS is not None:
             )
 
             st.markdown(f"**Días/jornadas con sobreocupación del pool de auxiliares (3 sedes):** {int(n_sobrecupo)}")
+
 
